@@ -7,7 +7,7 @@
 #
 # Usage
 # ~~~~~
-# ./polyboot.py (-s / -f) (ip address / file) (reboot / factory) (admin PW)
+# ./polyboot.py (-s / -f) (ip address / file) (config / reboot / factory) (admin PW)
 #
 # Reboot (single phone /IP):        polyboot.py -s 127.0.0.1 reboot 1234
 # Factory Reset (single IP):        polyboot.py -s 127.0.0.1 factory 1234
@@ -41,6 +41,23 @@ help = '''Usage:
 polyboot.py (-f [ip address file] or -s [single IP address]) [reboot / factory] (admin pw)
 ex.: polyboot.py -s 127.0.0.1 reboot 456
 '''
+
+
+# Download full configuration
+def config(ip):
+    config_curl = ['curl',
+                   '-k',
+                   'https://' + str(ip) + '/Utilities/configuration/exportFile?source=1',
+                   '-H',
+                   'Authorization: Basic ' + b64encode(admin_password),
+                   '-H',
+                   'Content-Length: 0',
+                   '-H',
+                   'Content-Type: application/x-www-form-urlencoded',
+                   '-H',
+                   'Cookie: Authorization=Basic ' + b64encode(admin_password)]
+    Popen(config_curl, shell=False, stdin=None, stdout=None, stderr=None, close_fds=True)
+    return
 
 
 # Rebooting the phone
@@ -94,7 +111,15 @@ elif argv[1] == '-f':
         with open(filename) as f:
             for index, line in enumerate(f):
                 ip = line.strip()
-                if argv[3] == 'reboot':
+                if argv[3] == 'config':
+                    config(ip)
+                    print('Grabbing configuration from address: ' + ip)
+                    sleep(timeout)
+                    if (index % batch_size == 0) and (index > 1):
+                        print('Pausing for ' + str(batch_timeout) + ' seconds between batches.')
+                        sleep(batch_timeout)
+
+                elif argv[3] == 'reboot':
                     reboot(ip)
                     print('Reboot instruction sent to address: ' + ip)
                     sleep(timeout)
@@ -123,7 +148,12 @@ elif argv[1] == '-f':
 # Single-IP mode
 elif argv[1] == '-s':
     admin_password = auth_string + argv[4]
-    if argv[3] == 'reboot':
+    if argv[3] == 'config':
+        ip = argv[2]
+        config(ip)
+        print('Grabbing configuration from address: ' + ip)
+
+    elif argv[3] == 'reboot':
         ip = argv[2]
         reboot(ip)
         print('Reboot instruction sent to address: ' + ip)
